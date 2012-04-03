@@ -1,0 +1,5 @@
+#!/usr/bin/env python
+from run_emcee import plot_mcmc 
+import sys
+
+plot_mcmc.main(sys.argv[1:])
