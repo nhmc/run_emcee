@@ -6,18 +6,14 @@ from astro.io import loadobj, parse_config
 from astro.utilities import autocorr, scoreatpercentile
 from astro.plot import dhist, distplot, puttext
 import numpy as np
-import run_emcee
 
 if not os.path.lexists('model.py'):
     print "The file 'model.py' must be in the current directory"
     sys.exit()
-
 if '.' not in sys.path:
     sys.path.insert(0, '.')
 
 from model import ymodel, P, x, ydata, ysigma
-
-defaultpath = run_emcee.__path__[0] + '/'
 
 pl.rc('font', size=9)
 

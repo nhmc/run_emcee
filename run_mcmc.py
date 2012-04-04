@@ -5,14 +5,10 @@ from math import sqrt
 import numpy as np
 import emcee
 from astro.io import loadobj, saveobj, parse_config
-import run_emcee
-
-defaultpath = run_emcee.__path__[0] + '/'
 
 if not os.path.lexists('model.py'):
     print "The file 'model.py' must be in the current directory"
     sys.exit()
-
 if '.' not in sys.path:
     sys.path.insert(0, '.')
 
@@ -94,4 +90,3 @@ def main(args=None):
 
 if __name__ == 'main':
     main(sys.argv[1:])
-
