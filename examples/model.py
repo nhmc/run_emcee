@@ -1,3 +1,26 @@
+"""
+This model must define the following objects:
+
+- a dictionary P with keys. The value of every key is a tuple with the
+same length (the number of model parameters)
+
+    name  : parameter names
+    min   : minimum allowed parameter values
+    max   : maximum allowed parameter values
+    guess : parameter values to use to generate initial walker positions
+
+- array of values x
+
+- array of data values ydata
+
+- array of data one sigma errors ysigma
+
+- a ymodel(x, par) function that generates the model of the data given
+  an array of parameter values
+
+- a ln_likelihood(x, ydata, ysigma) function
+
+"""
 from __future__ import division
 from astro.absorb import calc_iontau
 from astro.pyvpfit import readatom
@@ -21,13 +44,6 @@ P.guess = 2.5, 14, 20, 2.5005, 13.5, 25
 P.min = 2.4997, 12.5, 5, 2.500, 12.5, 5
 P.max = 2.5003, 16.5, 70, 2.501, 15.5, 70
 
-# for generating the wavelength scale
-vrange = 500.
-dv = 3.
-
-# S/N per pixel for fake data
-snr = 15.
-
 # function to generate the model at the x values from parameters
 atom = readatom()
 trans = atom['HI']
@@ -44,14 +60,27 @@ def ymodel(wa, *par):
 # problem these would usually all be given)
 ############################################################
 
-# wavelength array (all velocities in km/s)
-wa0 = trans[0].wa
-c = 3e5
-zmean = np.mean(P.guess[::3])
-x = wa0 * (1 + zmean) * np.arange(1. - vrange/c, 1. + vrange/c, dv/c)
-ysigma = 1. / snr * np.ones(len(x))
-noise = np.random.randn(len(x)) / snr
-ydata = ymodel(x, *P.guess) + noise
+def make_data():
+    # for generating the wavelength scale
+    vrange = 500.
+    dv = 3.
+
+    # S/N per pixel for fake data
+    snr = 15.
+
+    # wavelength array (all velocities in km/s)
+    wa0 = trans[0].wa
+    c = 3e5
+    zmean = np.mean(P.guess[::3])
+    x = wa0 * (1 + zmean) * np.arange(1. - vrange/c, 1. + vrange/c, dv/c)
+    ysigma = 1. / snr * np.ones(len(x))
+    np.random.seed(99)
+    noise = np.random.randn(len(x)) / snr
+    ydata = ymodel(x, *P.guess) + noise
+    return x, ydata, ysigma
+
+
+x, ydata, ysigma = make_data()
 
 # how do we generate the likelihood?
 

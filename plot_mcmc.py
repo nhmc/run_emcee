@@ -92,12 +92,13 @@ def plot_autocorr(chain, mean_accept):
     fig.savefig('fig/autocorr.jpg')
 
 
-def plot_posteriors(chain, pbest):
+def plot_posteriors(chain, pbest, nsamp, nthin):
     """ Plot the posterior distributions using the walker
     positions from the final sample.
     """
-    c = chain[:,-1,:].squeeze()
-    npar = c.shape[-1]
+    nwalkers, nsamples, npar = chain.shape
+    assert nsamp * nthin <= nsamples 
+    c = chain[:,0:nsamp*nthin:nthin,:].reshape(-1, npar)
     nrows, ncols = get_nrows_ncols(npar)
     fig,axes = get_fig_axes(nrows, ncols, npar)
 
@@ -106,6 +107,7 @@ def plot_posteriors(chain, pbest):
         if j == npar:
             j = 0
 
+        #ax.plot(chain[:,0,i], chain[:,0,j], '.r', ms=4, label='p$_{initial}$')
         dhist(c[:, i], c[:, j], xbins=P.bins[i], ybins=P.bins[j],
               #contourbins=50,
               fmt='.', ms=1.5, c='0.5', chist='b', ax=ax, loc='left, bottom')
@@ -123,12 +125,14 @@ def plot_posteriors(chain, pbest):
         ax.set_ylim(y0 - dy, y1 + dy)
 
 
+    fig.suptitle('%i of %i samples, %i walkers, thinning %i' % (
+        nsamp, nsamples, nwalkers, nthin), fontsize=14)
     fig.savefig('fig/posterior_mcmc.jpg')
 
 def plot_posteriors_burn(chain):
     """ Plot the posteriors of a burn-in sample
     """
-    npar = chain.shape[-1]
+    nwalkers, nsamples, npar = chain.shape
     c = chain.reshape(-1, npar)
     
     nrows, ncols = get_nrows_ncols(chain.shape[-1])
@@ -159,6 +163,7 @@ def plot_posteriors_burn(chain):
         dy = y1 - y0
         ax.set_ylim(y0 - 0.1*dy, y1 + 0.1*dy)
 
+    fig.suptitle('%i samples of %i walkers' % (nsamples, nwalkers), fontsize=14)
     fig.savefig('fig/posterior_burnin.jpg')
 
 
@@ -212,10 +217,11 @@ def main(args):
     if filename == 'samples_burn.sav':
         plot_posteriors_burn(samples['chain'])
     else:
-        plot_posteriors(samples['chain'], pbest)
+        plot_posteriors(samples['chain'], pbest, opt.Nsamp, opt.Nthin)
         
-    print 'plotting autocorrelation'
-    plot_autocorr(samples['chain'], mean_accept)
+    if filename == 'samples_burn.sav':
+       print 'plotting autocorrelation'
+       plot_autocorr(samples['chain'], mean_accept)
 
     pl.show()
 
