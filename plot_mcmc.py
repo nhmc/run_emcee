@@ -169,12 +169,8 @@ def plot_posteriors_burn(chain):
 
 def main(args):
 
-    try:
-        print '### Reading parameters from emcee.cfg ###'
-        opt = parse_config('emcee.cfg')
-    except IOError:
-        print '### Reading parameters from %sdefault.cfg ###' % defaultpath
-        opt = parse_config(defaultpath + 'default.cfg')
+    opt = parse_config('emcee.cfg')
+    print '### Read parameters from emcee.cfg ###'
 
     # bins for plotting posterior histograms
     P.bins = [np.linspace(lo, hi, opt.Nhistbins) for lo,hi in

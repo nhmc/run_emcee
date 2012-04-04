@@ -31,21 +31,13 @@ def run_burn_in(sampler, P, Npar, opt):
     
     # Get initial parameter positions (guesses!) for each walker
     
-    # Do this by generating random values from (sort of) truncated
-    # normal distribution with a 1 sigma width 5 times smaller than
-    # the prior range for each parameter.
-
-    nsigma = 5.
-    #from scipy.stats import truncnorm
-    # p0 = truncnorm.rvs(-0.5*nsigma, 0.5*nsigma, size=(opt.Nwalkers, Npar))
-    # for i in range(Npar):    
-    #     p0[:, i] = P.guess[i] + p0[:, i] * (P.max[i] - P.min[i]) / nsigma
-
+    # Do this by generating random values from a normal distribution
+    # with a 1 sigma width 5 times smaller than the prior range for
+    # each parameter.
     p0 = np.random.randn(opt.Nwalkers, Npar)
-    # approximate a normal distribution around the guess position
     for i in range(Npar):
-        p0[:, i] = P.guess[i] + p0[:, i] * (P.max[i] - P.min[i]) / nsigma
-        # clip so we are inside the limits
+        p0[:, i] = P.guess[i] + p0[:, i] * (P.max[i] - P.min[i]) / 5.
+        # clip so we are inside the parameter limits
         p0[:, i] = p0[:, i].clip(P.min[i], P.max[i])
         
     print 'Running burn-in with %i steps' % opt.Nburn
@@ -55,6 +47,7 @@ def run_burn_in(sampler, P, Npar, opt):
     save_samples('samples_burn.sav', sampler, pos, state)
 
 def run_mcmc(sampler, P, Npar, opt):
+
     print 'Reading initial state from sample_burn.sav'
     burn_in = loadobj('samples_burn.sav')
     sampler.reset()
@@ -70,12 +63,8 @@ def run_mcmc(sampler, P, Npar, opt):
 
 def main(args=None):
 
-    try:
-        print '### Reading parameters from emcee.cfg ###'
-        opt = parse_config('emcee.cfg')
-    except IOError:
-        print '### Reading parameters from %sdefault.cfg ###' % defaultpath
-        opt = parse_config(defaultpath + 'default.cfg')
+    opt = parse_config('emcee.cfg')
+    print '### Read parameters from emcee.cfg ###'
 
     print 'model parameters', P.names
     print 'initial guesses', P.guess
