@@ -42,7 +42,7 @@ def run_burn_in(sampler, P, Npar, opt):
     print 'Saving results to samples_burn.sav'
     save_samples('samples_burn.sav', sampler, pos, state)
 
-def run_mcmc(sampler, P, Npar, opt):
+def run_mcmc(sampler, opt):
 
     print 'Reading initial state from sample_burn.sav'
     burn_in = loadobj('samples_burn.sav')

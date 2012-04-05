@@ -2,10 +2,14 @@ from __future__ import division
 import sys, os
 import pylab as pl
 import numpy as np
+from matplotlib._cntr import Cntr
+from matplotlib.mlab import inside_poly
+from scipy.stats import gaussian_kde
+
 from astro.io import loadobj, parse_config
-from astro.utilities import autocorr, scoreatpercentile
+from astro.utilities import autocorr
 from astro.plot import dhist, distplot, puttext
-import numpy as np
+
 
 if not os.path.lexists('model.py'):
     print "The file 'model.py' must be in the current directory"
@@ -68,6 +72,79 @@ def find_min_interval(x, alpha):
     return min_int
 
 
+
+def get_contour(frac, C, pts, zmin, zmax):
+    """ Get the contour such that frac of points are within the
+    contour."""
+    #print frac
+    npts = float(len(pts))
+    if int(min(1-frac, frac) * npts) == 0:
+        print 'Too few points (%.0f) to estimate frac=%.4g contour' % (
+            npts, frac)
+        return None
+
+    maxlevel = zmax
+    minlevel = zmin
+    while True:
+        level = 0.5*(maxlevel + minlevel)
+        poly = C.trace(level)
+        #print minlevel, maxlevel, level, frac
+        if not len(poly) == 2:
+            print 'Problem finding contour %.4g' % frac
+            return None
+
+        ind = inside_poly(pts, poly[0])
+        #print len(ind), 'of', int(npts)
+        
+        p0 = (len(ind)-1)/npts
+        p1 = len(ind)/npts 
+        if p0 <= frac <= p1:
+            break
+        elif p1 > frac:
+            minlevel = level
+        elif p0 < frac:
+            maxlevel = level
+
+    return level
+
+def get_levels(pts, frac=(0.6827, 0.9545), ngrid=75):
+    """ Find contours for a 2d distribution that enclose some fraction
+    of points.
+
+    pts is an array with shape (npts, 2)
+
+    Return a grid of x, y and z values along with the levels giving
+    the contours. These can be used to plot contours with matplotlib's
+    contour command: contour(x, y, z, levels)
+
+    x,y and z have shape (ngrid, ngrid).
+    """
+    # Note 0.9973 is three sigma.
+    
+    # generate the kde estimation given the points
+    kde = gaussian_kde(pts.T)
+
+    x = pts[:,0]
+    y = pts[:,1]
+    x0 = x.min() - 0.1 * x.ptp()
+    x1 = x.max() + 0.1 * x.ptp()
+    y0 = y.min() - 0.1 * y.ptp()
+    y1 = y.max() + 0.1 * y.ptp()
+
+    # get the new positions at which we want to calculate the kde values.
+    X, Y = np.mgrid[x0:x1:ngrid*1j, y0:y1:ngrid*1j]
+    positions = np.vstack([X.ravel(), Y.ravel()])
+
+    # get the values at these positions
+    Z = np.reshape(kde(positions).T, X.shape)
+
+    zmax = Z.max()
+    C = Cntr(X, Y, Z, None)
+
+    levels = [get_contour(f, C, pts, 0, zmax) for f in frac]
+    return X,Y,Z,levels
+
+
 def plot_autocorr(chain, mean_accept):
     """ Plot the autocorrelation of all the parameters in the given
     chain.
@@ -107,16 +184,17 @@ def plot_posteriors(chain, pbest, nsamp, nthin):
         dhist(c[:, i], c[:, j], xbins=P.bins[i], ybins=P.bins[j],
               #contourbins=50,
               fmt='.', ms=1.5, c='0.5', chist='b', ax=ax, loc='left, bottom')
-
+        par = get_levels(np.array([c[:,i], c[:,j]]).T)
+        cont = ax.contour(*par, colors='k',linewidths=0.5)
         #ax.plot(pbest[:,i], pbest[:,j], 'o', ms=10, mfc='none', mec='r')
         ax.plot(P.guess[i], P.guess[j], 'xr', ms=10, mew=2)
 
         puttext(0.95, 0.05, P.names[i], ax, fontsize=16, ha='right')
         puttext(0.05, 0.95, P.names[j], ax, fontsize=16, va='top')
-        x0, x1 = scoreatpercentile(c[:,i], [5, 95])
+        x0, x1 = np.percentile(c[:,i], [5, 95])
         dx = x1 - x0
         ax.set_xlim(x0 - dx, x1 + dx)
-        y0, y1 = scoreatpercentile(c[:,j], [5, 95])
+        y0, y1 = np.percentile(c[:,j], [5, 95])
         dy = y1 - y0
         ax.set_ylim(y0 - dy, y1 + dy)
 
