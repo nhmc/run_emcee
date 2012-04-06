@@ -32,7 +32,7 @@ def run_burn_in(sampler, P, Npar, opt):
     # each parameter.
     p0 = np.random.randn(opt.Nwalkers, Npar)
     for i in range(Npar):
-        p0[:, i] = P.guess[i] + p0[:, i] * (P.max[i] - P.min[i]) / 5.
+        p0[:, i] = P.guess[i] + p0[:, i] * (P.max[i] - P.min[i]) / opt.Nsigma
         # clip so we are inside the parameter limits
         p0[:, i] = p0[:, i].clip(P.min[i], P.max[i])
         
@@ -83,7 +83,7 @@ def main(args=None):
 
     if opt.Nmcmc > 0:
         t1 = time.time()
-        run_mcmc(sampler, P, Npar, opt)
+        run_mcmc(sampler, opt)
         print '%.2g min elapsed' % ((time.time() - t1)/60.)
 
     return sampler

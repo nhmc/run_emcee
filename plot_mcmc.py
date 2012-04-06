@@ -138,9 +138,8 @@ def get_levels(pts, frac=(0.6827, 0.9545), ngrid=75):
     # get the values at these positions
     Z = np.reshape(kde(positions).T, X.shape)
 
-    zmax = Z.max()
     C = Cntr(X, Y, Z, None)
-
+    zmax = Z.max()
     levels = [get_contour(f, C, pts, 0, zmax) for f in frac]
     return X,Y,Z,levels
 
@@ -153,7 +152,7 @@ def plot_autocorr(chain, mean_accept):
     nrows, ncols = get_nrows_ncols(npar)
     fig,axes = get_fig_axes(nrows, ncols, npar)
     for i,ax in enumerate(axes):
-        acor = [autocorr(chain[j,:,i], maxlag=200) for j in xrange(nwalkers)]
+        acor = [autocorr(chain[j,:,i], maxlag=150) for j in xrange(nwalkers)]
         distplot(np.transpose(acor), ax=ax)
         ax.axhline(0, color='r', lw=0.5)
         puttext(0.1, 0.1, P.names[i], ax, fontsize=16)
@@ -182,11 +181,9 @@ def plot_posteriors(chain, pbest, nsamp, nthin):
 
         #ax.plot(chain[:,0,i], chain[:,0,j], '.r', ms=4, label='p$_{initial}$')
         dhist(c[:, i], c[:, j], xbins=P.bins[i], ybins=P.bins[j],
-              #contourbins=50,
               fmt='.', ms=1.5, c='0.5', chist='b', ax=ax, loc='left, bottom')
         par = get_levels(np.array([c[:,i], c[:,j]]).T)
         cont = ax.contour(*par, colors='k',linewidths=0.5)
-        #ax.plot(pbest[:,i], pbest[:,j], 'o', ms=10, mfc='none', mec='r')
         ax.plot(P.guess[i], P.guess[j], 'xr', ms=10, mew=2)
 
         puttext(0.95, 0.05, P.names[i], ax, fontsize=16, ha='right')
@@ -217,8 +214,7 @@ def plot_posteriors_burn(chain):
         if j == npar:
             j = 0
 
-        dhist(c[:, i], c[:, j], xbins=P.bins[i], ybins=P.bins[j],
-              fmt='.', ms=1, c='0.5', chist='b', ax=ax, loc='left, bottom')
+        ax.plot(c[:, i], c[:, j], '.', ms=1, color='0.5')
 
         # plot initial walker positions
         ax.plot(chain[:,0,i], chain[:,0,j], '.r', ms=4, label='p$_{initial}$')
@@ -237,6 +233,7 @@ def plot_posteriors_burn(chain):
         dy = y1 - y0
         ax.set_ylim(y0 - 0.1*dy, y1 + 0.1*dy)
 
+    axes[0].legend()
     fig.suptitle('%i samples of %i walkers' % (nsamples, nwalkers), fontsize=14)
     fig.savefig('fig/posterior_burnin.jpg')
 
@@ -247,8 +244,7 @@ def main(args):
     print '### Read parameters from emcee.cfg ###'
 
     # bins for plotting posterior histograms
-    P.bins = [np.linspace(lo, hi, opt.Nhistbins) for lo,hi in
-              zip(P.min, P.max)]
+    P.bins = [np.linspace(lo, hi, opt.Nhistbins) for lo,hi in zip(P.min, P.max)]
 
     filename, = args
     samples = loadobj(filename)
@@ -262,7 +258,7 @@ def main(args):
 
     fig = pl.figure(figsize=(10, 5))
     pl.plot(x, ydata)
-    pl.plot(x, ymodel(x, *P.guess), label='initial guess')
+    pl.plot(x, ymodel(x, P.guess), label='initial guess')
     pl.plot(x, ysigma)
 
     if filename != 'samples_burn.sav':
@@ -278,7 +274,7 @@ def main(args):
         P.best = pos[ibest[-1]]
         print 'pbest', P.best
 
-        pl.plot(x, ymodel(x, *P.best), 'c', lw=2, label='maximum likelihood')
+        pl.plot(x, ymodel(x, P.best), 'c', lw=2, label='maximum likelihood')
 
     pl.legend(frameon=0)
     fig.savefig('fig/model.jpg')
@@ -287,7 +283,16 @@ def main(args):
     if filename == 'samples_burn.sav':
         plot_posteriors_burn(samples['chain'])
     else:
-        plot_posteriors(samples['chain'], pbest, opt.Nsamp, opt.Nthin)
+        nwalkers, nsamples, npar = samples['chain'].shape
+        Ns = opt.Nsamp
+        Nt = opt.Nthin
+        assert Ns * Nt <= nsamples 
+        chain = samples['chain'][:,0:Ns*Nt:Nt,:].reshape(-1, npar)
+        
+        P.p1sig = [find_min_interval(chain[:, i], 0.635) for i in xrange(npar)]
+        P.p1sig = [find_min_interval(chain[:, i], 0.957) for i in xrange(npar)]
+        P.median = [np.median(chain[:, i]) for i in xrange(npar)]
+        plot_posteriors(samples['chain'], pbest, Ns, Nt)
         
     if filename == 'samples_burn.sav':
        print 'plotting autocorrelation'
