@@ -12,7 +12,7 @@ if not os.path.lexists('model.py'):
 if '.' not in sys.path:
     sys.path.insert(0, '.')
 
-from model import ln_likelihood, P, x, ydata, ysigma
+from model import ln_likelihood, P, x, ydata, ysigma, get_initial_positions
 
 # skip warnings when we add the -np.inf log likelihood value
 np.seterr(invalid='ignore')
@@ -22,20 +22,9 @@ def save_samples(filename, sampler, pos, state):
         chain=sampler.chain, accept=sampler.acceptance_fraction,
         lnprob=sampler.lnprobability, final_pos=pos, state=state), overwrite=1)
 
-def run_burn_in(sampler, P, Npar, opt):
+def run_burn_in(sampler, opt, p0):
     """ Run and save a set of burn-in iterations."""
-    
-    # Get initial parameter positions (guesses!) for each walker
-    
-    # Do this by generating random values from a normal distribution
-    # with a 1 sigma width 5 times smaller than the prior range for
-    # each parameter.
-    p0 = np.random.randn(opt.Nwalkers, Npar)
-    for i in range(Npar):
-        p0[:, i] = P.guess[i] + p0[:, i] * (P.max[i] - P.min[i]) / opt.Nsigma
-        # clip so we are inside the parameter limits
-        p0[:, i] = p0[:, i].clip(P.min[i], P.max[i])
-        
+
     print 'Running burn-in with %i steps' % opt.Nburn
     pos, lnprob, state = sampler.run_mcmc(p0, opt.Nburn)
 
@@ -59,15 +48,14 @@ def run_mcmc(sampler, opt):
 
 def main(args=None):
 
-    opt = parse_config('emcee.cfg')
-    print '### Read parameters from emcee.cfg ###'
+    opt = parse_config('model.cfg')
+    print '### Read parameters from model.cfg ###'
 
     print 'model parameters', P.names
-    print 'initial guesses', P.guess
     print 'minimum allowed values', P.min
     print 'maximum allowed values', P.max
 
-    Npar = len(P.guess)
+    Npar = len(P.names)
 
     print opt.Nthreads, 'threads'
     print opt.Nwalkers, 'walkers'
@@ -78,7 +66,8 @@ def main(args=None):
 
     if opt.Nburn > 0:
         t1 = time.time()
-        run_burn_in(sampler, P, Npar, opt)
+        p0 = get_initial_positions(opt.Nwalkers)
+        run_burn_in(sampler, opt, p0)
         print '%.2g min elapsed' % ((time.time() - t1)/60.)
 
     if opt.Nmcmc > 0:

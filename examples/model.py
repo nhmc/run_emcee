@@ -1,5 +1,5 @@
 """
-This model must define the following objects:
+This module must define the following objects:
 
 - a dictionary P with keys. The value of every key is a tuple with the
 same length (the number of model parameters)
@@ -7,7 +7,6 @@ same length (the number of model parameters)
     name  : parameter names
     min   : minimum allowed parameter values
     max   : maximum allowed parameter values
-    guess : parameter values to use to generate initial walker positions
 
 - array of values x
 
@@ -19,6 +18,10 @@ same length (the number of model parameters)
   an array of parameter values
 
 - a ln_likelihood(x, ydata, ysigma) function
+
+- a get_initial_positions(nwalkers) function that generates an array
+  of shape (nwalkers, npar) with parameter values for the initial
+  walker positions.
 
 """
 from __future__ import division
@@ -44,6 +47,8 @@ P.guess = 2.5, 14, 20, 2.5005, 13.5, 25
 P.min = 2.4997, 12.5, 5, 2.500, 12.5, 5
 P.max = 2.5003, 16.5, 70, 2.501, 15.5, 70
 
+Npar = len(P.names)
+
 # function to generate the model at the x values from parameters
 atom = readatom()
 trans = atom['HI']
@@ -55,12 +60,11 @@ def ymodel(wa, *par):
         tau += calc_iontau(wa, trans, z+1, logN, b)
     return np.exp(-tau)
 
-############################################################
-# Generate the data x, ydata, ysigma (in a real
-# problem these would usually all be given)
-############################################################
 
 def make_data():
+    """ Generate the data x, ydata, ysigma (in a real problem these
+    would usually all be given)."""
+
     # for generating the wavelength scale
     vrange = 500.
     dv = 3.
@@ -121,3 +125,22 @@ def ln_likelihood(pars, x, y, ysigma):
 
     resid = (y - ymodel(x, *pars)) / ysigma
     return -0.5 * np.dot(resid, resid)
+
+
+def get_initial_positions(nwalkers):
+    # Get initial parameter positions (guesses!) for each walker
+    
+    # Do this by generating random values from a normal distribution
+    # with a 1 sigma width 5 times smaller than the prior range for
+    # each parameter.
+    p0 = np.random.randn(nwalkers, Npar)
+    for i in range(Npar):
+        p0[:, i] = P.guess[i] + p0[:, i] * (P.max[i] - P.min[i]) / nsigma
+        # clip so we are inside the parameter limits
+        p0[:, i] = p0[:, i].clip(P.min[i], P.max[i])
+
+    p0 = np.random.uniform(size=(nwalkers, Npar))
+    for i in range(Npar):
+        p0[:, i] = P.min[i] + p0[:, i] * (P.max[i] - P.min[i])
+
+    return p0

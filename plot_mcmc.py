@@ -1,12 +1,13 @@
 from __future__ import division
-import sys, os
+import sys, os, pdb
 import pylab as pl
 import numpy as np
-from matplotlib._cntr import Cntr
-from matplotlib.mlab import inside_poly
-from scipy.stats import gaussian_kde
 
-from astro.io import loadobj, parse_config
+from scipy.stats import gaussian_kde
+from scipy.spatial import Delaunay
+from scipy.optimize import minimize
+
+from astro.io import loadobj, parse_config, writetxt
 from astro.utilities import autocorr
 from astro.plot import dhist, distplot, puttext
 
@@ -17,9 +18,10 @@ if not os.path.lexists('model.py'):
 if '.' not in sys.path:
     sys.path.insert(0, '.')
 
-from model import ymodel, P, x, ydata, ysigma
+from model import ymodel, P, x, ydata, ysigma, ln_likelihood
 
 pl.rc('font', size=9)
+pl.rc('legend', fontsize='large')
 
 def get_fig_axes(nrows, ncols, npar):
     fig = pl.figure(figsize=(12., 12.*nrows/ncols))    
@@ -46,8 +48,8 @@ def find_min_interval(x, alpha):
     Inspired by the pymc function of the same name.
     """
 
-    x = np.sort(x)
     assert len(x) > 1
+    x = np.sort(x)
 
     # Initialize interval
     min_int = None, None
@@ -56,7 +58,7 @@ def find_min_interval(x, alpha):
     n = len(x)
 
     # Start at far left
-    end0 = int(n*(1 - alpha))
+    end0 = int(n*alpha)
     start, end = 0, end0
 
     # Initialize minimum width to large value
@@ -72,81 +74,30 @@ def find_min_interval(x, alpha):
     return min_int
 
 
+def get_levels(pts, frac):
+    """ Find the a fraction of highest-likelihood pts for an n-D
+    distribution MCMC.
 
-def get_contour(frac, C, pts, zmin, zmax):
-    """ Get the contour such that frac of points are within the
-    contour."""
-    #print frac
-    npts = float(len(pts))
-    if int(min(1-frac, frac) * npts) == 0:
-        print 'Too few points (%.0f) to estimate frac=%.4g contour' % (
-            npts, frac)
-        return None
+    pts is an array with shape (npts, npar)
 
-    maxlevel = zmax
-    minlevel = zmin
-    while True:
-        level = 0.5*(maxlevel + minlevel)
-        poly = C.trace(level)
-        #print minlevel, maxlevel, level, frac
-        if not len(poly) == 2:
-            print 'Problem finding contour %.4g' % frac
-            return None
+    The likelihood function is estimated from the parameter samples
+    using a kernel density estimation.
 
-        ind = inside_poly(pts, poly[0])
-        #print len(ind), 'of', int(npts)
-        
-        p0 = (len(ind)-1)/npts
-        p1 = len(ind)/npts 
-        if p0 <= frac <= p1:
-            break
-        elif p1 > frac:
-            minlevel = level
-        elif p0 < frac:
-            maxlevel = level
-
-    return level
-
-def get_levels(pts, frac=(0.6827, 0.9545), ngrid=75):
-    """ Find contours for a 2d distribution that enclose some fraction
-    of points.
-
-    pts is an array with shape (npts, 2)
-
-    Return a grid of x, y and z values along with the levels giving
-    the contours. These can be used to plot contours with matplotlib's
-    contour command: contour(x, y, z, levels)
-
-    x,y and z have shape (ngrid, ngrid).
+    return the indices of the points.
     """
     # Note 0.9973 is three sigma.
     
     # generate the kde estimation given the points
     kde = gaussian_kde(pts.T)
+    vals_kde = kde(pts.T)
+    isort = vals_kde.argsort()
+    ind = isort[int((1-frac)*len(pts)):]
 
-    x = pts[:,0]
-    y = pts[:,1]
-    x0 = x.min() - 0.1 * x.ptp()
-    x1 = x.max() + 0.1 * x.ptp()
-    y0 = y.min() - 0.1 * y.ptp()
-    y1 = y.max() + 0.1 * y.ptp()
-
-    # get the new positions at which we want to calculate the kde values.
-    X, Y = np.mgrid[x0:x1:ngrid*1j, y0:y1:ngrid*1j]
-    positions = np.vstack([X.ravel(), Y.ravel()])
-
-    # get the values at these positions
-    Z = np.reshape(kde(positions).T, X.shape)
-
-    C = Cntr(X, Y, Z, None)
-    zmax = Z.max()
-    levels = [get_contour(f, C, pts, 0, zmax) for f in frac]
-    return X,Y,Z,levels
+    return ind
 
 
-def plot_autocorr(chain, mean_accept):
-    """ Plot the autocorrelation of all the parameters in the given
-    chain.
+def plot_autocorr(chain):
+    """ Plot the autocorrelation of parameters in the chain.
     """
     nwalkers, nsamples, npar = chain.shape
     nrows, ncols = get_nrows_ncols(npar)
@@ -157,20 +108,14 @@ def plot_autocorr(chain, mean_accept):
         ax.axhline(0, color='r', lw=0.5)
         puttext(0.1, 0.1, P.names[i], ax, fontsize=16)
 
-    fig.suptitle(
-        'Autocorrelation for %i walkers with %i samples. (Mean acceptance fraction %.2f)' %
-        (nwalkers, nsamples, mean_accept), fontsize=14)
-
-    fig.savefig('fig/autocorr.jpg')
+    return fig, axes
 
 
-def plot_posteriors(chain, pbest, nsamp, nthin):
-    """ Plot the posterior distributions using the walker
-    positions from the final sample.
+def plot_posteriors(chain, P):
+    """ Plot the posterior distributions for a series of parameter
+    samples. chain has shape (nsample, nparameters).
     """
-    nwalkers, nsamples, npar = chain.shape
-    assert nsamp * nthin <= nsamples 
-    c = chain[:,0:nsamp*nthin:nthin,:].reshape(-1, npar)
+    npar = chain.shape[-1]
     nrows, ncols = get_nrows_ncols(npar)
     fig,axes = get_fig_axes(nrows, ncols, npar)
 
@@ -180,25 +125,45 @@ def plot_posteriors(chain, pbest, nsamp, nthin):
             j = 0
 
         #ax.plot(chain[:,0,i], chain[:,0,j], '.r', ms=4, label='p$_{initial}$')
-        dhist(c[:, i], c[:, j], xbins=P.bins[i], ybins=P.bins[j],
+        dhist(chain[:, i], chain[:, j], xbins=P.bins[i], ybins=P.bins[j],
               fmt='.', ms=1.5, c='0.5', chist='b', ax=ax, loc='left, bottom')
-        par = get_levels(np.array([c[:,i], c[:,j]]).T)
-        cont = ax.contour(*par, colors='k',linewidths=0.5)
-        ax.plot(P.guess[i], P.guess[j], 'xr', ms=10, mew=2)
+
+        #if contours:
+        #    i1sig = get_levels(np.array([chain[:,i], chain[:,j]]).T,)
+        #    #cont = ax.contour(*par, colors='k',linewidths=0.5)
+        # for ind in P.ijoint_sig:
+        #     x,y = chain[:,i][ind], chain[:,j][ind]
+        #     delaunay = Delaunay(np.array([x, y]).T)
+        #     for i0,i1 in delaunay.convex_hull:
+        #         ax.plot([x[i0], x[i1]], [y[i0], y[i1]], 'k', lw=0.5)
+        x,y = chain[:,i][P.ijoint_sig[1]], chain[:,j][P.ijoint_sig[1]]
+        ax.plot(x,y,'g.', ms=3)
+        x,y = chain[:,i][P.ijoint_sig[0]], chain[:,j][P.ijoint_sig[0]]
+        ax.plot(x,y,'r.', ms=3)
+            
+        ax.plot(P.guess[i], P.guess[j], 'or', mfc='none', ms=10, mew=2, mec='r')
+        ax.plot(P.best[i], P.best[j], 'xk', ms=12, mew=4)
+        ax.plot(P.best[i], P.best[j], 'xr', ms=10, mew=2)
+
+        c = 'crimson'
+        ax.axvline(P.p1sig[i][0], ymax=0.2, color=c, lw=0.5)
+        ax.axvline(P.p1sig[i][1], ymax=0.2, color=c, lw=0.5)
+        ax.axhline(P.p1sig[j][0], xmax=0.2, color=c, lw=0.5)
+        ax.axhline(P.p1sig[j][1], xmax=0.2, color=c, lw=0.5)
+        ax.axvline(P.median[i], ymax=0.2, color=c, lw=1.5)
+        ax.axhline(P.median[j], xmax=0.2, color=c, lw=1.5)
 
         puttext(0.95, 0.05, P.names[i], ax, fontsize=16, ha='right')
         puttext(0.05, 0.95, P.names[j], ax, fontsize=16, va='top')
-        x0, x1 = np.percentile(c[:,i], [5, 95])
+        x0, x1 = np.percentile(chain[:,i], [5, 95])
         dx = x1 - x0
         ax.set_xlim(x0 - dx, x1 + dx)
-        y0, y1 = np.percentile(c[:,j], [5, 95])
+        y0, y1 = np.percentile(chain[:,j], [5, 95])
         dy = y1 - y0
         ax.set_ylim(y0 - dy, y1 + dy)
 
+    return fig, axes
 
-    fig.suptitle('%i of %i samples, %i walkers, thinning %i' % (
-        nsamp, nsamples, nwalkers, nthin), fontsize=14)
-    fig.savefig('fig/posterior_mcmc.jpg')
 
 def plot_posteriors_burn(chain):
     """ Plot the posteriors of a burn-in sample
@@ -206,7 +171,7 @@ def plot_posteriors_burn(chain):
     nwalkers, nsamples, npar = chain.shape
     c = chain.reshape(-1, npar)
     
-    nrows, ncols = get_nrows_ncols(chain.shape[-1])
+    nrows, ncols = get_nrows_ncols(npar)
     fig, axes = get_fig_axes(nrows, ncols, npar)
 
     for i,ax in enumerate(axes):
@@ -234,14 +199,45 @@ def plot_posteriors_burn(chain):
         ax.set_ylim(y0 - 0.1*dy, y1 + 0.1*dy)
 
     axes[0].legend()
-    fig.suptitle('%i samples of %i walkers' % (nsamples, nwalkers), fontsize=14)
-    fig.savefig('fig/posterior_burnin.jpg')
+    return fig, axes
 
+def print_par(filename, P):
+    """ Print the maximum likelihood parameters and their
+    uncertainties.
+    """
+    rec = []
+    for i in range(len(P.names)):
+        p = P.best[i]
+        m1 = P.p1sig[i]
+        m2 = P.p2sig[i]
+        j1 = P.p1sig_joint[i]
+        j2 = P.p2sig_joint[i]
+        rec.append( (P.names[i], p,  p - j1[0], j1[1] - p,
+                     p - j2[0], j2[1] - p, p - m1[0], m1[1] - p,
+                     p - m2[0], m2[1] - p) )
 
+    names = 'name,ml,j1l,j1u,j2l,j2u,m1l,m1u,m2l,m2u'
+    rec = np.rec.fromrecords(rec, names=names)
+
+    hd = """\
+# name : parameter name
+# ml   : maximum likelihood value
+# j1l  : 1 sigma lower error (joint with all other parameters) 
+# j1u  : 1 sigma upper error (joint)
+# j2l  : 2 sigma lower error (joint) 
+# j2u  : 2 sigma upper error (joint) 
+# m1l  : 1 sigma lower error (marginalised over all other parameters)
+# m1u  : 1 sigma upper error (marginalised)
+# m2l  : 2 sigma lower error (marginalised) 
+# m2u  : 2 sigma upper error (marginalised) 
+"""
+    #pdb.set_trace()
+    writetxt(filename, rec, header=hd, fmt_float='.4g', overwrite=1)
+    
 def main(args):
 
-    opt = parse_config('emcee.cfg')
-    print '### Read parameters from emcee.cfg ###'
+    opt = parse_config('model.cfg')
+    print '### Read parameters from model.cfg ###'
 
     # bins for plotting posterior histograms
     P.bins = [np.linspace(lo, hi, opt.Nhistbins) for lo,hi in zip(P.min, P.max)]
@@ -256,47 +252,77 @@ def main(args):
     if not os.path.lexists('fig/'):
         os.mkdir('fig')
 
-    fig = pl.figure(figsize=(10, 5))
-    pl.plot(x, ydata)
-    pl.plot(x, ymodel(x, P.guess), label='initial guess')
-    pl.plot(x, ysigma)
-
-    if filename != 'samples_burn.sav':
-        # find the set of parameters that have the highest likelihood
-        # in the chain.
-        
-        # the first 10 highest probability parameter sets from the
-        # last sample
-
-        pos = samples['final_pos']
-        ibest = np.argsort(samples['lnprob'][:,-1], axis=None)
-        pbest = pos[ibest[-10:]]
-        P.best = pos[ibest[-1]]
-        print 'pbest', P.best
-
-        pl.plot(x, ymodel(x, P.best), 'c', lw=2, label='maximum likelihood')
-
-    pl.legend(frameon=0)
-    fig.savefig('fig/model.jpg')
-
-    print 'plotting posteriors'
     if filename == 'samples_burn.sav':
-        plot_posteriors_burn(samples['chain'])
+        print 'Plotting burn-in sample posteriors'
+        fig,axes = plot_posteriors_burn(samples['chain'])
+        fig.suptitle('%i samples of %i walkers' % (
+            nsamples, nwalkers), fontsize=14)
+        fig.savefig('fig/posterior_burnin.jpg')
+
+        print 'Plotting autocorrelation'
+        fig, axes = plot_autocorr(samples['chain'])
+        fig.suptitle('Autocorrelation for %i walkers with %i samples. '
+                     '(Mean acceptance fraction %.2f)' %
+                     (nwalkers, nsamples, mean_accept), fontsize=14)
+        fig.savefig('fig/autocorr.jpg')
+
     else:
-        nwalkers, nsamples, npar = samples['chain'].shape
-        Ns = opt.Nsamp
-        Nt = opt.Nthin
+        # make a chain of independent samples
+        Ns, Nt = opt.Nsamp, opt.Nthin
         assert Ns * Nt <= nsamples 
         chain = samples['chain'][:,0:Ns*Nt:Nt,:].reshape(-1, npar)
-        
-        P.p1sig = [find_min_interval(chain[:, i], 0.635) for i in xrange(npar)]
-        P.p1sig = [find_min_interval(chain[:, i], 0.957) for i in xrange(npar)]
-        P.median = [np.median(chain[:, i]) for i in xrange(npar)]
-        plot_posteriors(samples['chain'], pbest, Ns, Nt)
-        
-    if filename == 'samples_burn.sav':
-       print 'plotting autocorrelation'
-       plot_autocorr(samples['chain'], mean_accept)
+        lnprob = samples['lnprob'][:,0:Ns*Nt:Nt].ravel()
+        isort = lnprob.argsort()
+        levels = 0.6827, 0.9545
+        P.ijoint_sig = [isort[int((1-l)*len(lnprob)):] for l in levels]
+
+        P.p1sig = [find_min_interval(chain[:, i], 0.6827) for i in range(npar)]
+        P.p2sig = [find_min_interval(chain[:, i], 0.9545) for i in range(npar)]
+
+        # the joint 1 and 2 sigma regions, simulatenously estimating
+        # all parameters.
+        P.p1sig_joint = []
+        P.p2sig_joint = []
+        for i in range(npar):
+            lo = chain[P.ijoint_sig[0], i].min()
+            hi = chain[P.ijoint_sig[0], i].max() 
+            P.p1sig_joint.append((lo, hi))
+            lo = chain[P.ijoint_sig[1], i].min()
+            hi = chain[P.ijoint_sig[1], i].max()
+            P.p2sig_joint.append((lo, hi))
+            
+        P.median = np.median(chain, axis=0)
+
+        # estimate maximum likelihood as the point in the chain with
+        # the highest likelihood.
+        i = samples['lnprob'].ravel().argmax()
+        P.best = samples['chain'].reshape(-1, npar)[i]
+
+        if opt.find_maximum_likelihood:
+            print 'Finding maximum likelihood parameter values'
+            P.best = minimize(lambda *x: -ln_likelihood(*x),
+                              P.best, args=(x, ydata, ysigma))
+
+        print 'Plotting sample posteriors'
+        fig, axes = plot_posteriors(chain, P)
+        fig.suptitle('%i of %i samples, %i walkers, thinning %i' % (
+            Ns, nsamples, nwalkers, Nt), fontsize=14)
+        fig.savefig('fig/posterior_mcmc.jpg')
+
+        print_par('parameters.txt', P)
+
+    if opt.plotdata:
+        fig = pl.figure(figsize=(10, 5))
+        pl.plot(x, ydata)
+        pl.plot(x, ymodel(x, P.guess), label='Initial guess')
+        pl.plot(x, ysigma)
+
+        if hasattr(P, 'best'):
+            pl.plot(x, ymodel(x, P.best),'c',lw=2,label='Maximum likelihood')
+
+        pl.legend(frameon=0)
+        fig.savefig('fig/model.jpg')
+
 
     pl.show()
 
