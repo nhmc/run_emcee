@@ -3,9 +3,13 @@ import sys, os, pdb
 import pylab as pl
 import numpy as np
 
-from scipy.stats import gaussian_kde
-from scipy.spatial import Delaunay
-from scipy.optimize import minimize
+scipy = True
+try:
+    from scipy.stats import gaussian_kde
+    from scipy.spatial import Delaunay
+    from scipy.optimize import minimize
+except ImportError:
+    scipy = False
 
 from astro.io import loadobj, parse_config, writetxt
 from astro.utilities import autocorr
@@ -303,6 +307,8 @@ def main(args):
         P.best = samples['chain'].reshape(-1, npar)[i]
 
         if opt.find_maximum_likelihood:
+            if not scipy:
+                raise ImportError('Scipy minimize not available')
             print 'Finding maximum likelihood parameter values'
             P.best = minimize(lambda *x: -ln_likelihood(*x),
                               P.best, args=(x, ydata, ysigma))
