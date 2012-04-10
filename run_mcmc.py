@@ -36,12 +36,12 @@ def run_burn_in(sampler, opt, p0):
             print i
     
     print 'Saving results to samples_burn.sav'
-    save_samples('samples_burn.sav', sampler, pos, state)
+    save_samples('samples_burn.sav.gz', sampler, pos, state)
 
 def run_mcmc(sampler, opt):
 
     print 'Reading initial state from sample_burn.sav'
-    burn_in = loadobj('samples_burn.sav')
+    burn_in = loadobj('samples_burn.sav.gz')
     sampler.reset()
 
     # Starting from the final position in the burn-in chain, sample for 1500
@@ -57,7 +57,7 @@ def run_mcmc(sampler, opt):
             print i
 
     print 'Saving results to samples_mcmc.sav'
-    save_samples('samples_mcmc.sav', sampler, pos, state)
+    save_samples('samples_mcmc.sav.gz', sampler, pos, state)
 
 def main(args=None):
 
