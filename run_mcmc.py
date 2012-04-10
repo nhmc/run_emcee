@@ -26,8 +26,14 @@ def run_burn_in(sampler, opt, p0):
     """ Run and save a set of burn-in iterations."""
 
     print 'Running burn-in with %i steps' % opt.Nburn
-    pos, lnprob, state = sampler.run_mcmc(p0, opt.Nburn)
 
+    # note the results are saved in the sampler object.
+    for i,(pos, lnprob, state) in enumerate(
+        sampler.sample(p0, iterations=opt.Nburn)):
+        i += 1
+        if not i % 10:
+            print i
+    
     print 'Saving results to samples_burn.sav'
     save_samples('samples_burn.sav', sampler, pos, state)
 
@@ -39,9 +45,14 @@ def run_mcmc(sampler, opt):
 
     # Starting from the final position in the burn-in chain, sample for 1500
     # steps. (rstate0 is the state of the internal random number generator)
+
+    # note the results are saved in the sampler object.
     print "Running MCMC with %i steps" % opt.Nmcmc
-    pos, lnprob, state = sampler.run_mcmc(burn_in['final_pos'], opt.Nmcmc,
-                                          rstate0=burn_in['state'])
+    for i,(pos, lnprob, state) in enumerate(sampler.sample(
+        burn_in['final_pos'], iterations=opt.Nmcmc, rstate0=burn_in['state'])):
+        i += 1
+        if not i % 10:
+            print i
 
     print 'Saving results to samples_mcmc.sav'
     save_samples('samples_mcmc.sav', sampler, pos, state)

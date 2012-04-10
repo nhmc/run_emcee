@@ -140,8 +140,10 @@ def plot_posteriors(chain, P):
         ax.plot(x,y,'g.', ms=3)
         x,y = chain[:,i][P.ijoint_sig[0]], chain[:,j][P.ijoint_sig[0]]
         ax.plot(x,y,'r.', ms=3)
-            
-        ax.plot(P.guess[i], P.guess[j], 'or', mfc='none', ms=10, mew=2, mec='r')
+
+        if hasattr(P, 'guess'):
+            ax.plot(P.guess[i], P.guess[j], 'o', mfc='none', ms=10, mew=4,mec='k')
+            ax.plot(P.guess[i], P.guess[j], 'o', mfc='none', ms=10, mew=2, mec='r')
         ax.plot(P.best[i], P.best[j], 'xk', ms=12, mew=4)
         ax.plot(P.best[i], P.best[j], 'xr', ms=10, mew=2)
 
@@ -187,7 +189,9 @@ def plot_posteriors_burn(chain):
         # and final positions
         ax.plot(chain[:,-1,i], chain[:,-1,j], '.y', ms=4, label='p$_{final}$')
 
-        ax.plot(P.guess[i], P.guess[j], 'xr', ms=10, mew=2, label='guess')
+        if hasattr(P, 'guess'):
+            ax.plot(P.guess[i], P.guess[j], 'o', mfc='none', mec='k',ms=10, mew=4)
+            ax.plot(P.guess[i], P.guess[j], 'o', mfc='none', mec='r',ms=10, mew=2, label='guess')
 
         puttext(0.95, 0.05, P.names[i], ax, fontsize=16, ha='right')
         puttext(0.05, 0.95, P.names[j], ax, fontsize=16, va='top')
@@ -314,7 +318,8 @@ def main(args):
     if opt.plotdata:
         fig = pl.figure(figsize=(10, 5))
         pl.plot(x, ydata)
-        pl.plot(x, ymodel(x, P.guess), label='Initial guess')
+        if hasattr(P, 'guess'):
+            pl.plot(x, ymodel(x, P.guess), label='Initial guess')
         pl.plot(x, ysigma)
 
         if hasattr(P, 'best'):
