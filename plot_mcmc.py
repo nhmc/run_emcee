@@ -171,7 +171,7 @@ def plot_posteriors(chain, P):
     return fig, axes
 
 
-def plot_posteriors_burn(chain):
+def plot_posteriors_burn(chain, P):
     """ Plot the posteriors of a burn-in sample
     """
     nwalkers, nsamples, npar = chain.shape
@@ -196,6 +196,9 @@ def plot_posteriors_burn(chain):
         if hasattr(P, 'guess'):
             ax.plot(P.guess[i], P.guess[j], 'o', mfc='none', mec='k',ms=10, mew=4)
             ax.plot(P.guess[i], P.guess[j], 'o', mfc='none', mec='r',ms=10, mew=2, label='guess')
+
+        ax.plot(P.best[i], P.best[j], 'xk', ms=12, mew=4)
+        ax.plot(P.best[i], P.best[j], 'xr', ms=10, mew=2)        
 
         puttext(0.95, 0.05, P.names[i], ax, fontsize=16, ha='right')
         puttext(0.05, 0.95, P.names[j], ax, fontsize=16, va='top')
@@ -261,11 +264,18 @@ def main(args):
         os.mkdir('fig')
 
     if filename == 'samples_burn.sav':
+
+        # estimate maximum likelihood as the point in the chain with
+        # the highest likelihood.
+        i = samples['lnprob'].ravel().argmax()
+        P.best = samples['chain'].reshape(-1, npar)[i]
+
         print 'Plotting burn-in sample posteriors'
         fig,axes = plot_posteriors_burn(samples['chain'])
         fig.suptitle('%i samples of %i walkers' % (
             nsamples, nwalkers), fontsize=14)
         fig.savefig('fig/posterior_burnin.' + opt.plotformat)
+        
 
         print 'Plotting autocorrelation'
         fig, axes = plot_autocorr(samples['chain'])
@@ -322,18 +332,9 @@ def main(args):
         print_par('parameters.txt', P)
 
     if opt.plotdata:
-        fig = pl.figure(figsize=(10, 5))
-        pl.plot(x, ydata)
-        if hasattr(P, 'guess'):
-            pl.plot(x, ymodel(x, P.guess), label='Initial guess')
-        pl.plot(x, ysigma)
-
-        if hasattr(P, 'best'):
-            pl.plot(x, ymodel(x, P.best),'c',lw=2,label='Maximum likelihood')
-
-        pl.legend(frameon=0)
+        from model import plot_model
+        fig = plot_model(P.best)
         fig.savefig('fig/model.' + opt.plotformat)
-
 
     pl.show()
 
