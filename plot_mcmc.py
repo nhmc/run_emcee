@@ -264,7 +264,7 @@ def main(args):
         P.best = samples['chain'].reshape(-1, npar)[i]
 
         print 'Plotting burn-in sample posteriors'
-        fig,axes = plot_posteriors_burn(samples['chain'])
+        fig,axes = plot_posteriors_burn(samples['chain'], P)
         fig.suptitle('%i samples of %i walkers' % (
             nsamples, nwalkers), fontsize=14)
         fig.savefig('fig/posterior_burnin.' + opt.plotformat)
