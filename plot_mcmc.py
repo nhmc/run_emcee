@@ -265,14 +265,14 @@ def main(args):
         fig,axes = plot_posteriors_burn(samples['chain'])
         fig.suptitle('%i samples of %i walkers' % (
             nsamples, nwalkers), fontsize=14)
-        fig.savefig('fig/posterior_burnin.jpg')
+        fig.savefig('fig/posterior_burnin.' + opt.plotformat)
 
         print 'Plotting autocorrelation'
         fig, axes = plot_autocorr(samples['chain'])
         fig.suptitle('Autocorrelation for %i walkers with %i samples. '
                      '(Mean acceptance fraction %.2f)' %
                      (nwalkers, nsamples, mean_accept), fontsize=14)
-        fig.savefig('fig/autocorr.jpg')
+        fig.savefig('fig/autocorr.' + opt.plotformat)
 
     else:
         # make a chain of independent samples
@@ -317,7 +317,7 @@ def main(args):
         fig, axes = plot_posteriors(chain, P)
         fig.suptitle('%i of %i samples, %i walkers, thinning %i' % (
             Ns, nsamples, nwalkers, Nt), fontsize=14)
-        fig.savefig('fig/posterior_mcmc.jpg')
+        fig.savefig('fig/posterior_mcmc.' + opt.plotformat)
 
         print_par('parameters.txt', P)
 
@@ -332,7 +332,7 @@ def main(args):
             pl.plot(x, ymodel(x, P.best),'c',lw=2,label='Maximum likelihood')
 
         pl.legend(frameon=0)
-        fig.savefig('fig/model.jpg')
+        fig.savefig('fig/model.' + opt.plotformat)
 
 
     pl.show()
