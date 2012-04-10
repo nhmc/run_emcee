@@ -27,11 +27,12 @@ def run_burn_in(sampler, opt, p0):
 
     print 'Running burn-in with %i steps' % opt.Nburn
 
+    iprint = opt.iprint
     # note the results are saved in the sampler object.
     for i,(pos, lnprob, state) in enumerate(
         sampler.sample(p0, iterations=opt.Nburn)):
         i += 1
-        if not i % 10:
+        if not i % iprint:
             print i
     
     print 'Saving results to samples_burn.sav'
@@ -47,11 +48,12 @@ def run_mcmc(sampler, opt):
     # steps. (rstate0 is the state of the internal random number generator)
 
     # note the results are saved in the sampler object.
+    iprint = opt.iprint
     print "Running MCMC with %i steps" % opt.Nmcmc
     for i,(pos, lnprob, state) in enumerate(sampler.sample(
         burn_in['final_pos'], iterations=opt.Nmcmc, rstate0=burn_in['state'])):
         i += 1
-        if not i % 10:
+        if not i % iprint:
             print i
 
     print 'Saving results to samples_mcmc.sav'
