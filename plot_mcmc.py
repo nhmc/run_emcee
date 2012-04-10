@@ -145,9 +145,6 @@ def plot_posteriors(chain, P):
         x,y = chain[:,i][P.ijoint_sig[0]], chain[:,j][P.ijoint_sig[0]]
         ax.plot(x,y,'r.', ms=3)
 
-        if hasattr(P, 'guess'):
-            ax.plot(P.guess[i], P.guess[j], 'o', mfc='none', ms=10, mew=4,mec='k')
-            ax.plot(P.guess[i], P.guess[j], 'o', mfc='none', ms=10, mew=2, mec='r')
         ax.plot(P.best[i], P.best[j], 'xk', ms=12, mew=4)
         ax.plot(P.best[i], P.best[j], 'xr', ms=10, mew=2)
 
@@ -192,10 +189,6 @@ def plot_posteriors_burn(chain, P):
 
         # and final positions
         ax.plot(chain[:,-1,i], chain[:,-1,j], '.y', ms=4, label='p$_{final}$')
-
-        if hasattr(P, 'guess'):
-            ax.plot(P.guess[i], P.guess[j], 'o', mfc='none', mec='k',ms=10, mew=4)
-            ax.plot(P.guess[i], P.guess[j], 'o', mfc='none', mec='r',ms=10, mew=2, label='guess')
 
         ax.plot(P.best[i], P.best[j], 'xk', ms=12, mew=4)
         ax.plot(P.best[i], P.best[j], 'xr', ms=10, mew=2)        
