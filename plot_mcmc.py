@@ -24,7 +24,7 @@ if '.' not in sys.path:
 
 from model import ymodel, P, x, ydata, ysigma, ln_likelihood
 
-pl.rc('font', size=9)
+pl.rc('font', size=11)
 pl.rc('legend', fontsize='large')
 
 def get_fig_axes(nrows, ncols, npar):
@@ -256,7 +256,7 @@ def main(args):
     if not os.path.lexists('fig/'):
         os.mkdir('fig')
 
-    if filename == 'samples_burn.sav':
+    if filename.startswith('samples_burn'):
 
         # estimate maximum likelihood as the point in the chain with
         # the highest likelihood.
