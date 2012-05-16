@@ -4,7 +4,7 @@ import time
 from math import sqrt
 import numpy as np
 import emcee
-from astro.io import loadobj, saveobj, parse_config
+from barak.io import loadobj, saveobj, parse_config
 
 if not os.path.lexists('model.py'):
     print "The file 'model.py' must be in the current directory"
@@ -61,7 +61,9 @@ def run_mcmc(sampler, opt):
 
 def main(args=None):
 
-    opt = parse_config('model.cfg')
+    path = os.path.abspath(__file__).rsplit('/', 1)[0]
+    defaults = parse_config(path + '/default.cfg')
+    opt = parse_config('model.cfg', defaults)
     print '### Read parameters from model.cfg ###'
 
     print 'model parameters', P.names

@@ -25,23 +25,6 @@
 *.py[ocd]
 *.so
 
-# Packages #
-############
-# it's better to unpack these files and commit the raw source
-# git has its own built in compression methods
-*.7z
-*.bz2
-*.bzip2
-*.dmg
-*.gz
-*.iso
-*.jar
-*.rar
-*.tar
-*.tbz2
-*.tgz
-*.zip
-
 # Python files #
 ################
 # setup.py working directory
@@ -78,11 +61,5 @@ Thumbs.db
 
 # Things specific to this project #
 ###################################
-numpy/core/__svn_version__.py
-doc/numpy.scipy.org/_build
-numpy/__config__.py
-numpy/core/include/numpy/__multiarray_api.h
-numpy/core/include/numpy/__ufunc_api.h
-numpy/core/include/numpy/_numpyconfig.h
-numpy/version.py
-site.cfg
+docs/generated
+docs/_build

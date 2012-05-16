@@ -12,7 +12,7 @@ same length (the number of model parameters)
 
 - array of data values ydata
 
-- array of data one sigma errors ysigma
+- array of data one sigma errors in the ydata, ysigma
 
 - a ymodel(x, par) function that generates the model of the data given
   an array of parameter values
@@ -23,18 +23,21 @@ same length (the number of model parameters)
   of shape (nwalkers, npar) with parameter values for the initial
   walker positions.
 
+- a plot_model(par) function that plots a model fit to the data given a
+  set of parameter values, in the same order as they are listed in P.
+
 """
 from __future__ import division
-from astro.absorb import calc_iontau
-from astro.pyvpfit import readatom
-from astro.utilities import adict
+from barak.absorb import calc_iontau, readatom
+from barak.utilities import adict
+from barak.io import writetxt
+import pylab as pl
 import numpy as np
 
 P = adict()
 
 # these are what we'll find the posterior for
 P.names = 'z1', 'logN1', 'b1', 'z2', 'logN2', 'b2'
-P.guess = 2.5, 14, 20, 2.5005, 13.5, 25
 
 # these are the upper and lower limits on the flat prior ranges. these
 # will be used to generate guess positions for the sampler. If you get
@@ -61,7 +64,7 @@ def ymodel(wa, *par):
     return np.exp(-tau)
 
 
-def make_data():
+def make_data(ptrue):
     """ Generate the data x, ydata, ysigma (in a real problem these
     would usually all be given)."""
 
@@ -75,16 +78,16 @@ def make_data():
     # wavelength array (all velocities in km/s)
     wa0 = trans[0].wa
     c = 3e5
-    zmean = np.mean(P.guess[::3])
+    zmean = np.mean(ptrue[::3])
     x = wa0 * (1 + zmean) * np.arange(1. - vrange/c, 1. + vrange/c, dv/c)
     ysigma = 1. / snr * np.ones(len(x))
     np.random.seed(99)
     noise = np.random.randn(len(x)) / snr
-    ydata = ymodel(x, *P.guess) + noise
+    ydata = ymodel(x, *ptrue) + noise
     return x, ydata, ysigma
 
-
-x, ydata, ysigma = make_data()
+P.true = 2.5, 14, 20, 2.5005, 13.5, 25
+x, ydata, ysigma = make_data(P.true)
 
 # how do we generate the likelihood?
 
@@ -129,18 +132,62 @@ def ln_likelihood(pars, x, y, ysigma):
 
 def get_initial_positions(nwalkers):
     # Get initial parameter positions (guesses!) for each walker
-    
-    # Do this by generating random values from a normal distribution
-    # with a 1 sigma width 5 times smaller than the prior range for
-    # each parameter.
-    p0 = np.random.randn(nwalkers, Npar)
-    for i in range(Npar):
-        p0[:, i] = P.guess[i] + p0[:, i] * (P.max[i] - P.min[i]) / nsigma
-        # clip so we are inside the parameter limits
-        p0[:, i] = p0[:, i].clip(P.min[i], P.max[i])
 
+    # one possibility:
+    
+    # generate random values from a normal distribution with a 1
+    # sigma width 5 times smaller than the limits for each parameter.
+    #p0 = np.random.randn(nwalkers, Npar)
+    #for i in range(Npar):
+    #    p0[:, i] = P.true[i] + p0[:, i] * (P.max[i] - P.min[i]) / nsigma
+    #    # clip so we are inside the parameter limits
+    #    p0[:, i] = p0[:, i].clip(P.min[i], P.max[i])
+
+    # another possibility:
+    #
+    # uniform distribution between parameter limits
     p0 = np.random.uniform(size=(nwalkers, Npar))
     for i in range(Npar):
         p0[:, i] = P.min[i] + p0[:, i] * (P.max[i] - P.min[i])
 
     return p0
+
+def print_par(filename, par):
+    """ Print the maximum likelihood parameters and their
+    uncertainties.
+    """
+    rec = []
+    for i in range(len(P.names)):
+        p = P.ml[i]
+        m1 = P.p1sig[i]
+        m2 = P.p2sig[i]
+        j1 = P.p1sig_joint[i]
+        j2 = P.p2sig_joint[i]
+        rec.append( (P.names[i], p,  p - j1[0], j1[1] - p,
+                     p - j2[0], j2[1] - p, p - m1[0], m1[1] - p,
+                     p - m2[0], m2[1] - p) )
+
+    names = 'name,ml,j1l,j1u,j2l,j2u,m1l,m1u,m2l,m2u'
+    rec = np.rec.fromrecords(rec, names=names)
+
+    hd = """\
+# name : parameter name
+# ml   : maximum likelihood value
+# j1l  : 1 sigma lower error (joint with all other parameters) 
+# j1u  : 1 sigma upper error (joint)
+# j2l  : 2 sigma lower error (joint) 
+# j2u  : 2 sigma upper error (joint) 
+# m1l  : 1 sigma lower error (marginalised over all other parameters)
+# m1u  : 1 sigma upper error (marginalised)
+# m2l  : 2 sigma lower error (marginalised) 
+# m2u  : 2 sigma upper error (marginalised) 
+"""
+    #pdb.set_trace()
+    writetxt(filename, rec, header=hd, fmt_float='.4g', overwrite=1)
+
+def plot_model(par):
+    
+    model = ymodel(x, *par)
+    pl.plot(x, ydata)
+    pl.plot(x, model)
+    pl.show()
