@@ -24,8 +24,8 @@ if '.' not in sys.path:
 
 from model import ymodel, P, x, ydata, ysigma, ln_likelihood
 
-pl.rc('font', size=11)
-pl.rc('legend', fontsize=13, numpoints=1, borderaxespad=0.5, borderpad=0.2)
+#pl.rc('font', size=11)
+#pl.rc('legend', fontsize=13, numpoints=1, borderaxespad=0.5, borderpad=0.2)
 
 def get_fig_axes(nrows, ncols, npar, width=12):
     fig = pl.figure(figsize=(width, width*nrows/ncols))    
@@ -115,7 +115,7 @@ def plot_trace(chain, nwplot=10):
     nwplot = min(nsample, nwplot)
     for i in range(npar):
         ax = axes[i]
-        for j in range(0, nwalker, max(1, nwalker // nwplot)):
+        for j in range(0, nwalkers, max(1, nwalkers // nwplot)):
             ax.plot(chain[j,:,i], lw=0.5)
         puttext(0.9, 0.1, P.names[i], ax, ha='right', fontsize=14)
 
@@ -166,9 +166,9 @@ def plot_posteriors(chain, P, npar='all'):
         #     for i0,i1 in delaunay.convex_hull:
         #         ax.plot([x[i0], x[i1]], [y[i0], y[i1]], 'k', lw=0.5)
         x,y = chain[:,i][P.ijoint_sig[1]], chain[:,j][P.ijoint_sig[1]]
-        ax.plot(x,y,'g.', ms=3)
+        ax.plot(x,y,'g.', ms=3, mew=0)
         x,y = chain[:,i][P.ijoint_sig[0]], chain[:,j][P.ijoint_sig[0]]
-        ax.plot(x,y,'r.', ms=3)
+        ax.plot(x,y,'r.', ms=3, mew=0)
 
         ax.plot(P.ml[i], P.ml[j], 'xk', ms=12, mew=4)
         ax.plot(P.ml[i], P.ml[j], 'xr', ms=10, mew=2)
