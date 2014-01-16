@@ -12,7 +12,7 @@ if not os.path.lexists('model.py'):
 if '.' not in sys.path:
     sys.path.insert(0, '.')
 
-from model import ln_likelihood, P, x, ydata, ysigma, get_initial_positions
+from model import ln_likelihood, P, get_initial_positions
 
 # skip warnings when we add the -np.inf log likelihood value
 np.seterr(invalid='ignore')
@@ -66,18 +66,17 @@ def main(args=None):
     opt = parse_config('model.cfg', defaults)
     print '### Read parameters from model.cfg ###'
 
-    print 'model parameters', P.names
-    print 'minimum allowed values', P.min
-    print 'maximum allowed values', P.max
+    print 'model parameters', P['names']
+    print 'minimum allowed values', P['min']
+    print 'maximum allowed values', P['max']
 
-    Npar = len(P.names)
+    Npar = len(P['names'])
 
     print opt.Nthreads, 'threads'
     print opt.Nwalkers, 'walkers'
 
     sampler = emcee.EnsembleSampler(
-        opt.Nwalkers, Npar, ln_likelihood,
-        args=[x, ydata, ysigma], threads=opt.Nthreads)
+        opt.Nwalkers, Npar, ln_likelihood, threads=opt.Nthreads)
 
     if opt.Nburn > 0:
         t1 = time.time()

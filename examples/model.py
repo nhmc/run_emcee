@@ -8,16 +8,11 @@ same length (the number of model parameters)
     min   : minimum allowed parameter values
     max   : maximum allowed parameter values
 
-- array of values x
 
-- array of data values ydata
-
-- array of data one sigma errors in the ydata, ysigma
-
-- a ymodel(x, par) function that generates the model of the data given
+- a model(*par) function that generates the model of the data given
   an array of parameter values
 
-- a ln_likelihood(x, ydata, ysigma) function
+- a ln_likelihood(par) function
 
 - a get_initial_positions(nwalkers) function that generates an array
   of shape (nwalkers, npar) with parameter values for the initial
@@ -52,15 +47,15 @@ P.max = 2.5003, 16.5, 70, 2.501, 15.5, 70
 
 Npar = len(P.names)
 
-# function to generate the model at the x values from parameters
+# function to generate the model at each data point from parameters
+
 atom = readatom()
 trans = atom['HI']
-
-def ymodel(wa, *par):
-    tau = np.zeros_like(wa)
+def model(*par):
+    tau = np.zeros_like(X)
     for i in xrange(len(par)//3):
         z,logN,b = par[3*i:3*i+3]
-        tau += calc_iontau(wa, trans, z+1, logN, b)
+        tau += calc_iontau(X, trans, z+1, logN, b)
     return np.exp(-tau)
 
 
@@ -83,11 +78,11 @@ def make_data(ptrue):
     ysigma = 1. / snr * np.ones(len(x))
     np.random.seed(99)
     noise = np.random.randn(len(x)) / snr
-    ydata = ymodel(x, *ptrue) + noise
+    ydata = model(x, *ptrue) + noise
     return x, ydata, ysigma
 
 P.true = 2.5, 14, 20, 2.5005, 13.5, 25
-x, ydata, ysigma = make_data(P.true)
+X, ydata, ysigma = make_data(P.true)
 
 # how do we generate the likelihood?
 
@@ -105,10 +100,13 @@ x, ydata, ysigma = make_data(P.true)
 # = exp(-0.5*((y0-f0)/s0)**2) * exp(-0.5*((y1-f1)/s1)**2) * ...
 #
 # take natural logarithm so we can add rather than multiply,
-# andhandily remove the exponents.
+# and handily remove the exponents.
 #
 # ln(likelihood) = -0.5 * ( [(y0-f0)/s0]**2 + [(y1-f1)/s1]**2 + ... +
 # [(yn-fn)/sn]**2 )
+#
+# (Note we've dropped the terms that don't depend on the parameters to be
+# determined...)
 #
 # simplify the notation by assuming Y, F and S are vectors
 #
@@ -119,14 +117,14 @@ x, ydata, ysigma = make_data(P.true)
 #  where resid = (Y-F)/S, introducing vectors to represent each set of
 #  points.
 
-def ln_likelihood(pars, x, y, ysigma):
+def ln_likelihood(pars):
     # if we are outside the allowable parameter ranges, return 0
     # likelihood.
     for i,p in enumerate(pars):
         if not (P.min[i] < p < P.max[i]):
             return -np.inf
 
-    resid = (y - ymodel(x, *pars)) / ysigma
+    resid = (ydata - model(*pars)) / ysigma
     return -0.5 * np.dot(resid, resid)
 
 
@@ -183,11 +181,11 @@ def print_par(filename, par):
 # m2u  : 2 sigma upper error (marginalised) 
 """
     #pdb.set_trace()
-    writetxt(filename, rec, header=hd, fmt_float='.4g', overwrite=1)
+    writetxt('pars.txt', rec, header=hd, fmt_float='.4g', overwrite=1)
 
 def plot_model(par):
     
-    model = ymodel(x, *par)
-    pl.plot(x, ydata)
-    pl.plot(x, model)
+    model = model(*par)
+    pl.plot(X, ydata)
+    pl.plot(X, model)
     pl.show()

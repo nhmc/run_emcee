@@ -22,7 +22,7 @@ if not os.path.lexists('model.py'):
 if '.' not in sys.path:
     sys.path.insert(0, '.')
 
-from model import ymodel, P, x, ydata, ysigma, ln_likelihood
+from model import P, ln_likelihood
 
 #pl.rc('font', size=11)
 #pl.rc('legend', fontsize=13, numpoints=1, borderaxespad=0.5, borderpad=0.2)
@@ -117,7 +117,7 @@ def plot_trace(chain, nwplot=10):
         ax = axes[i]
         for j in range(0, nwalkers, max(1, nwalkers // nwplot)):
             ax.plot(chain[j,:,i], lw=0.5)
-        puttext(0.9, 0.1, P.names[i], ax, ha='right', fontsize=14)
+        puttext(0.9, 0.1, P['names'][i], ax, ha='right', fontsize=14)
 
         ax.set_xlim(0, nsample)
 
@@ -134,7 +134,7 @@ def plot_autocorr(chain):
         acor = [autocorr(chain[j,:,i], maxlag=150) for j in xrange(nwalkers)]
         distplot(np.transpose(acor), ax=ax)
         ax.axhline(0, color='r', lw=0.5)
-        puttext(0.1, 0.1, P.names[i], ax, fontsize=16)
+        puttext(0.1, 0.1, P['names'][i], ax, fontsize=16)
 
     return fig, axes
 
@@ -154,7 +154,7 @@ def plot_posteriors(chain, P, npar='all'):
             j = 0
 
         #ax.plot(chain[:,0,i], chain[:,0,j], '.r', ms=4, label='p$_{initial}$')
-        dhist(chain[:, i], chain[:, j], xbins=P.bins[i], ybins=P.bins[j],
+        dhist(chain[:, i], chain[:, j], xbins=P['bins'][i], ybins=P['bins'][j],
               fmt='.', ms=1.5, c='0.5', chist='b', ax=ax, loc='left, bottom')
 
         #if contours:
@@ -165,24 +165,24 @@ def plot_posteriors(chain, P, npar='all'):
         #     delaunay = Delaunay(np.array([x, y]).T)
         #     for i0,i1 in delaunay.convex_hull:
         #         ax.plot([x[i0], x[i1]], [y[i0], y[i1]], 'k', lw=0.5)
-        x,y = chain[:,i][P.ijoint_sig[1]], chain[:,j][P.ijoint_sig[1]]
+        x,y = chain[:,i][P['ijoint_sig'][1]], chain[:,j][P['ijoint_sig'][1]]
         ax.plot(x,y,'g.', ms=3, mew=0)
-        x,y = chain[:,i][P.ijoint_sig[0]], chain[:,j][P.ijoint_sig[0]]
+        x,y = chain[:,i][P['ijoint_sig'][0]], chain[:,j][P['ijoint_sig'][0]]
         ax.plot(x,y,'r.', ms=3, mew=0)
 
-        ax.plot(P.ml[i], P.ml[j], 'xk', ms=12, mew=4)
-        ax.plot(P.ml[i], P.ml[j], 'xr', ms=10, mew=2)
+        ax.plot(P['ml'][i], P['ml'][j], 'xk', ms=12, mew=4)
+        ax.plot(P['ml'][i], P['ml'][j], 'xr', ms=10, mew=2)
 
         c = 'crimson'
-        ax.axvline(P.p1sig[i][0], ymax=0.2, color=c, lw=0.5)
-        ax.axvline(P.p1sig[i][1], ymax=0.2, color=c, lw=0.5)
-        ax.axhline(P.p1sig[j][0], xmax=0.2, color=c, lw=0.5)
-        ax.axhline(P.p1sig[j][1], xmax=0.2, color=c, lw=0.5)
-        ax.axvline(P.median[i], ymax=0.2, color=c, lw=1.5)
-        ax.axhline(P.median[j], xmax=0.2, color=c, lw=1.5)
+        ax.axvline(P['p1sig'][i][0], ymax=0.2, color=c, lw=0.5)
+        ax.axvline(P['p1sig'][i][1], ymax=0.2, color=c, lw=0.5)
+        ax.axhline(P['p1sig'][j][0], xmax=0.2, color=c, lw=0.5)
+        ax.axhline(P['p1sig'][j][1], xmax=0.2, color=c, lw=0.5)
+        ax.axvline(P['median'][i], ymax=0.2, color=c, lw=1.5)
+        ax.axhline(P['median'][j], xmax=0.2, color=c, lw=1.5)
 
-        puttext(0.95, 0.05, P.names[i], ax, fontsize=16, ha='right')
-        puttext(0.05, 0.95, P.names[j], ax, fontsize=16, va='top')
+        puttext(0.95, 0.05, P['names'][i], ax, fontsize=16, ha='right')
+        puttext(0.05, 0.95, P['names'][j], ax, fontsize=16, va='top')
         x0, x1 = np.percentile(chain[:,i], [5, 95])
         dx = x1 - x0
         ax.set_xlim(x0 - dx, x1 + dx)
@@ -218,11 +218,11 @@ def plot_posteriors_burn(chain, P, npar='all'):
         # and final positions
         ax.plot(chain[:,-1,i], chain[:,-1,j], '.y', ms=4, label='p$_{final}$')
 
-        ax.plot(P.ml[i], P.ml[j], 'xk', ms=12, mew=4)
-        ax.plot(P.ml[i], P.ml[j], 'xr', ms=10, mew=2)        
+        ax.plot(P['ml'][i], P['ml'][j], 'xk', ms=12, mew=4)
+        ax.plot(P['ml'][i], P['ml'][j], 'xr', ms=10, mew=2)        
 
-        puttext(0.95, 0.05, P.names[i], ax, fontsize=16, ha='right')
-        puttext(0.05, 0.95, P.names[j], ax, fontsize=16, va='top')
+        puttext(0.95, 0.05, P['names'][i], ax, fontsize=16, ha='right')
+        puttext(0.05, 0.95, P['names'][j], ax, fontsize=16, va='top')
         x0, x1 = chain[:, 0, i].min(), chain[:, 0, i].max()
         dx = x1 - x0
         ax.set_xlim(x0 - 0.1*dx, x1 + 0.1*dx)
@@ -241,7 +241,8 @@ def main(args):
     print '### Read parameters from model.cfg ###'
 
     # bins for plotting posterior histograms
-    P.bins = [np.linspace(lo, hi, opt.Nhistbins) for lo,hi in zip(P.min, P.max)]
+    P['bins'] = [np.linspace(lo, hi, opt.Nhistbins) for
+                 lo,hi in zip(P['min'], P['max'])]
 
     filename, = args
     samples = loadobj(filename)
@@ -258,7 +259,7 @@ def main(args):
         # estimate maximum likelihood as the point in the chain with
         # the highest likelihood.
         i = samples['lnprob'].ravel().argmax()
-        P.ml = samples['chain'].reshape(-1, npar)[i]
+        P['ml'] = samples['chain'].reshape(-1, npar)[i]
 
         print 'Plotting burn-in sample posteriors'
         fig,axes = plot_posteriors_burn(samples['chain'], P, npar=opt.npar)
@@ -286,8 +287,10 @@ def main(args):
         chain = samples['chain'][:,0:Ns*Nt:Nt,:].reshape(-1, npar)
 
 
-        P.p1sig = [find_min_interval(chain[:, i], 0.6827) for i in range(npar)]
-        P.p2sig = [find_min_interval(chain[:, i], 0.9545) for i in range(npar)]
+        P['p1sig'] = [find_min_interval(chain[:, i], 0.6827) for i
+                      in range(npar)]
+        P['p2sig'] = [find_min_interval(chain[:, i], 0.9545) for i
+                      in range(npar)]
 
         levels = 0.6827, 0.9545
         # if hasattr(P, 'nuisance') and any(P.nuisance):
@@ -299,33 +302,32 @@ def main(args):
 
         lnprob = samples['lnprob'][:,0:Ns*Nt:Nt].ravel()
         isort = lnprob.argsort()
-        P.ijoint_sig = [isort[int((1-l)*len(lnprob)):] for l in levels]
+        P['ijoint_sig'] = [isort[int((1-l)*len(lnprob)):] for l in levels]
 
         # the joint 1 and 2 sigma regions, simulatenously estimating
         # all parameters.
-        P.p1sig_joint = []
-        P.p2sig_joint = []
+        P['p1sig_joint'] = []
+        P['p2sig_joint'] = []
         for i in range(npar):
-            lo = chain[P.ijoint_sig[0], i].min()
-            hi = chain[P.ijoint_sig[0], i].max() 
-            P.p1sig_joint.append((lo, hi))
-            lo = chain[P.ijoint_sig[1], i].min()
-            hi = chain[P.ijoint_sig[1], i].max()
-            P.p2sig_joint.append((lo, hi))
+            lo = chain[P['ijoint_sig'][0], i].min()
+            hi = chain[P['ijoint_sig'][0], i].max() 
+            P['p1sig_joint'].append((lo, hi))
+            lo = chain[P['ijoint_sig'][1], i].min()
+            hi = chain[P['ijoint_sig'][1], i].max()
+            P['p2sig_joint'].append((lo, hi))
 
-        P.median = np.median(chain, axis=0)
+        P['median'] = np.median(chain, axis=0)
 
         # estimate maximum likelihood as the point in the chain with
         # the highest likelihood.
         i = samples['lnprob'].ravel().argmax()
-        P.ml = samples['chain'].reshape(-1, npar)[i]
+        P['ml'] = samples['chain'].reshape(-1, npar)[i]
 
         if opt.find_maximum_likelihood:
             if not scipy:
                 raise ImportError('Scipy minimize not available')
             print 'Finding maximum likelihood parameter values'
-            P.ml = minimize(lambda *x: -ln_likelihood(*x),
-                              P.ml, args=(x, ydata, ysigma))
+            P['ml'] = minimize(lambda *x: -ln_likelihood(*x), P['ml'])
             print 'done'
 
         if opt.plotposteriors:
@@ -337,10 +339,10 @@ def main(args):
 
     if opt.plotdata:
         from model import plot_model
-        fig = plot_model(P.ml)
+        fig = plot_model(P['ml'])
         fig.savefig('fig/model.' + opt.plotformat)
 
-    if opt.printpar:
+    if opt.printpar and not filename.startswith('samples_burn'):
         from model import print_par
         print_par(P)
 

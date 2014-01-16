@@ -1,6 +1,6 @@
 # first define the model in model.py.
 
-# adjust the number of burn-in samples in emcee.cfg, and set Nmcmc=0
+# adjust the number of burn-in samples in model.cfg, and set Nmcmc=0
 run_mcmc
 
 # inspect the burn-in
