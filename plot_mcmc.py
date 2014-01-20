@@ -240,10 +240,6 @@ def main(args):
     print pprint.pformat(opt)
     print '### Read parameters from model.cfg ###'
 
-    # bins for plotting posterior histograms
-    P['bins'] = [np.linspace(lo, hi, opt.Nhistbins) for
-                 lo,hi in zip(P['min'], P['max'])]
-
     filename, = args
     samples = loadobj(filename)
 
@@ -262,6 +258,10 @@ def main(args):
         P['ml'] = samples['chain'].reshape(-1, npar)[i]
 
         print 'Plotting burn-in sample posteriors'
+        # bins for plotting posterior histograms
+        P['bins'] = [np.linspace(lo, hi, opt.Nhistbins) for
+                     lo,hi in zip(P['min'], P['max'])]
+
         fig,axes = plot_posteriors_burn(samples['chain'], P, npar=opt.npar)
         fig.suptitle('%i samples of %i walkers' % (
             nsamples, nwalkers), fontsize=14)
@@ -287,12 +287,22 @@ def main(args):
         chain = samples['chain'][:,0:Ns*Nt:Nt,:].reshape(-1, npar)
 
 
-        P['p1sig'] = [find_min_interval(chain[:, i], 0.6827) for i
-                      in range(npar)]
-        P['p2sig'] = [find_min_interval(chain[:, i], 0.9545) for i
-                      in range(npar)]
+        # bins for plotting posterior histograms
+        P['bins'] = []
+        for i in xrange(len(P['names'])):
+            x0, x1 = chain[:,i].min(), chain[:,i].max()
+            dx = x1 - x0
+            lo = x0 - 0.1*dx
+            hi = x1 + 0.1*dx
+            P['bins'].append( np.linspace(lo, hi, opt.Nhistbins) )
+
 
         levels = 0.6827, 0.9545
+        P['p1sig'] = [find_min_interval(chain[:, i], levels[0]) for i
+                      in range(npar)]
+        P['p2sig'] = [find_min_interval(chain[:, i], levels[1]) for i
+                      in range(npar)]
+
         # if hasattr(P, 'nuisance') and any(P.nuisance):
         #     print 'marginalising over nuisance parameters'
         #     marginalised_chain = chain[:, [i for i in range(npar)
