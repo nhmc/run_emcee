@@ -20,7 +20,8 @@ np.seterr(invalid='ignore')
 def save_samples(filename, sampler, pos, state):
     saveobj(filename, dict(
         chain=sampler.chain, accept=sampler.acceptance_fraction,
-        lnprob=sampler.lnprobability, final_pos=pos, state=state), overwrite=1)
+        lnprob=sampler.lnprobability, final_pos=pos, state=state,
+        par=P), overwrite=1)
 
 def run_burn_in(sampler, opt, p0):
     """ Run and save a set of burn-in iterations."""

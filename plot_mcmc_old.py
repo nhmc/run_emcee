@@ -13,7 +13,8 @@ except ImportError:
 
 from barak.io import loadobj, parse_config, writetxt
 from barak.utilities import autocorr
-from barak.plot import hist_xedge, hist_yedge, distplot, puttext, A4LANDSCAPE
+from barak.plot import dhist, distplot, puttext, A4LANDSCAPE
+
 
 if not os.path.lexists('model.py'):
     print "The file 'model.py' must be in the current directory"
@@ -143,75 +144,66 @@ def plot_posteriors(chain, P, nplot='all'):
     samples. chain has shape (nsample, nparameters).
     """
 
-    if nplot == 'all':
+    if 'posterior_plots' in opt:
+        temp = opt['posterior_plots'].split(',')
+        pairs = []
+        for pair in temp:
+            pairs.append(pair.split())
+        nplot = len(pairs)
+    elif nplot == 'all':
         nplot = chain.shape[-1]
 
-    #nrows, ncols = get_nrows_ncols(nplot)
-    #fig,axes = get_fig_axes(nrows, ncols, nplot)
 
-    fig = pl.figure(figsize=(8.4, 8.4))
-    fig.subplots_adjust(left=0.05, bottom=0.05, hspace=0.001, wspace=0.001)
-    axes = []
-    pl.rc('xtick', labelsize=8)
-    pl.rc('ytick', labelsize=8)
+    nrows, ncols = get_nrows_ncols(nplot)
+    fig,axes = get_fig_axes(nrows, ncols, nplot)
 
-    for i0 in xrange(nplot):
-        for i1 in xrange(nplot):
-            if i0 == i1:# or i1 < i0:
-                continue
-            ax = fig.add_subplot(nplot,nplot, i0 * nplot + i1 + 1)
+    for i,ax in enumerate(axes):
+        if 'posterior_plots' in opt:
+            i0 = P['names'].index(pairs[i][0])
+            i1 = P['names'].index(pairs[i][1])
+        else:
+            i0 = i
+            i1 = i + 1
+        if i1 == npar:
+            i1 = 0
 
-            y,x = chain[:,i0], chain[:,i1]
-            ax.plot(x,y,'r.', ms=1, mew=0)#, alpha=0.5)
-            #y,x = chain[:,i0][P['ijoint_sig'][1]], chain[:,i1][P['ijoint_sig'][1]]
-            #ax.plot(x,y,'g.', ms=1.5, mew=0)
-            #y,x = chain[:,i0][P['ijoint_sig'][0]], chain[:,i1][P['ijoint_sig'][0]]
-            #ax.plot(x,y,'r.', ms=1.5, mew=0)
+        #ax.plot(chain[:,0,i], chain[:,0,j], '.r', ms=4, label='p$_{initial}$')
+        dhist(chain[:, i0], chain[:, i1],
+              xbins=P['bins'][i0], ybins=P['bins'][i1],
+              fmt='.', ms=1.5, c='0.5', chist='b', ax=ax, loc='left, bottom')
 
-            ax.plot(P['ml'][i1], P['ml'][i0], 'xk', ms=8, mew=2)
-            ax.plot(P['ml'][i1], P['ml'][i0], 'xr', ms=6, mew=1)
+        #if contours:
+        #    i1sig = get_levels(np.array([chain[:,i], chain[:,j]]).T,)
+        #    #cont = ax.contour(*par, colors='k',linewidths=0.5)
+        # for ind in P.ijoint_sig:
+        #     x,y = chain[:,i][ind], chain[:,j][ind]
+        #     delaunay = Delaunay(np.array([x, y]).T)
+        #     for i0,i1 in delaunay.convex_hull:
+        #         ax.plot([x[i0], x[i1]], [y[i0], y[i1]], 'k', lw=0.5)
+        x,y = chain[:,i0][P['ijoint_sig'][1]], chain[:,i1][P['ijoint_sig'][1]]
+        ax.plot(x,y,'g.', ms=3, mew=0)
+        x,y = chain[:,i0][P['ijoint_sig'][0]], chain[:,i1][P['ijoint_sig'][0]]
+        ax.plot(x,y,'r.', ms=3, mew=0)
 
+        ax.plot(P['ml'][i0], P['ml'][i1], 'xk', ms=12, mew=4)
+        ax.plot(P['ml'][i0], P['ml'][i1], 'xr', ms=10, mew=2)
 
-            puttext(0.05, 0.95, P['names'][i0], ax, fontsize=12, va='top')
-            puttext(0.95, 0.05, P['names'][i1], ax, fontsize=12, ha='right')
-            y0, y1 = np.percentile(chain[:,i0], [5, 95])
-            dy = y1 - y0
-            ax.set_ylim(y0 - dy, y1 + dy)
-            x0, x1 = np.percentile(chain[:,i1], [5, 95])
-            dx = x1 - x0
-            ax.set_xlim(x0 - dx, x1 + dx)
+        c = 'crimson'
+        ax.axvline(P['p1sig'][i0][0], ymax=0.2, color=c, lw=0.5)
+        ax.axvline(P['p1sig'][i0][1], ymax=0.2, color=c, lw=0.5)
+        ax.axhline(P['p1sig'][i1][0], xmax=0.2, color=c, lw=0.5)
+        ax.axhline(P['p1sig'][i1][1], xmax=0.2, color=c, lw=0.5)
+        ax.axvline(P['median'][i0], ymax=0.2, color=c, lw=1.5)
+        ax.axhline(P['median'][i1], xmax=0.2, color=c, lw=1.5)
 
-            c = 'crimson'
-            if i0 == 0:
-                ax.xaxis.set_tick_params(labeltop='on')
-                ax.xaxis.set_tick_params(labelbottom='off')
-                for t in ax.get_xticklabels():
-                    t.set_rotation(60)
-            elif i0 == nplot-1 or (i0 == nplot-2 and i1 == nplot-1):
-                hist_xedge(chain[:, i1], ax, fmt='b', bins=P['bins'][i1], loc='bottom')
-                ax.axvline(P['p1sig'][i1][0], ymax=0.2, color=c, lw=0.5)
-                ax.axvline(P['p1sig'][i1][1], ymax=0.2, color=c, lw=0.5)
-                ax.axvline(P['median'][i1], ymax=0.2, color=c, lw=1.5)
-                for t in ax.get_xticklabels():
-                    t.set_rotation(60)
-            else:
-                ax.set_xticklabels('')
-
-            if not (i1 == 0 or (i0 == 0 and i1 == 1) or i1 == nplot-1):
-                ax.set_yticklabels('')
-
-            if (i0 == 0 and i1 == 1) or i1 == 0:
-                hist_yedge(chain[:, i0], ax, fmt='b', bins=P['bins'][i0], loc='left')
-                ax.axhline(P['p1sig'][i0][0], xmax=0.2, color=c, lw=0.5)
-                ax.axhline(P['p1sig'][i0][1], xmax=0.2, color=c, lw=0.5)
-                ax.axhline(P['median'][i0], xmax=0.2, color=c, lw=1.5)
-
-
-            if i1 == nplot - 1:
-                ax.yaxis.set_tick_params(labelright='on')
-                ax.yaxis.set_tick_params(labelleft='off')
-                
-            axes.append(ax)
+        puttext(0.95, 0.05, P['names'][i0], ax, fontsize=16, ha='right')
+        puttext(0.05, 0.95, P['names'][i1], ax, fontsize=16, va='top')
+        x0, x1 = np.percentile(chain[:,i0], [5, 95])
+        dx = x1 - x0
+        ax.set_xlim(x0 - dx, x1 + dx)
+        y0, y1 = np.percentile(chain[:,i1], [5, 95])
+        dy = y1 - y0
+        ax.set_ylim(y0 - dy, y1 + dy)
 
     return fig, axes
 
@@ -365,22 +357,15 @@ def main(args):
 
         if opt.plotposteriors:
             print 'Plotting sample posteriors'
-            fig, axes = plot_posteriors(chain, P, nplot=opt.npar)
+            fig, axes = plot_posteriors(chain, P, npar=opt.npar)
             fig.suptitle('%i of %i samples, %i walkers, thinning %i' % (
                 Ns, nsamples, nwalkers, Nt), fontsize=14)
-            fig.savefig('fig/posterior_mcmc.' + opt.plotformat, dpi=200)
+            fig.savefig('fig/posterior_mcmc.' + opt.plotformat)
 
     if opt.plotdata:
         print 'Plotting the maximum likelihood model and data'
         from model import plot_model
-        if opt.nsamp_plot > 1:
-            chain = samples['chain'].reshape(-1, npar)
-            step = int(len(chain) / opt.nsamp_plot)
-            samp = chain[::step]
-            fig = plot_model(samp)
-        else:
-            fig = plot_model([P['median']])
-
+        fig = plot_model(P['ml'])
         fig.savefig('fig/model.' + opt.plotformat)
 
     if opt.printpar and not filename.startswith('samples_burn'):
